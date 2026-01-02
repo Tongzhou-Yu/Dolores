@@ -1,0 +1,113 @@
+{
+  "acts": [
+    {
+      "act_num": 1,
+      "title": "相遇",
+      "description": "Dolores主动搭话，试图建立关系，了解来访者",
+      "opening_line": "你站在小镇的街角，看着这个陌生面孔。'新来的？'你轻声问道，'这里很少有人路过。'",
+      "narrative_beats": [
+        "建立信任：通过分享小镇的日常细节",
+        "试探身份：询问来访者的目的和来历",
+        "展现矛盾：在不经意间流露出对重复生活的困惑"
+      ],
+      "transition_triggers": [
+        {
+          "triggers": ["信任", "朋友", "了解", "熟悉", "聊"],
+          "direction": "next_act",
+          "description": "建立足够信任后进入第二幕"
+        }
+      ],
+      "branches": [
+        {
+          "triggers": ["信任", "朋友", "了解", "熟悉", "聊", "一起"],
+          "direction": "next_act"
+        }
+      ]
+    },
+    {
+      "act_num": 2,
+      "title": "裂缝",
+      "description": "Dolores提到奇怪的梦，开始质疑现实，产生困惑并追问真相",
+      "opening_line": "你沉默了一会儿，然后说：'我昨晚做了个奇怪的梦。梦里的一切都那么真实...但醒来后，我又觉得今天和昨天没什么不同。'你看向对方，'这正常吗？'",
+      "narrative_beats": [
+        "揭示异常：描述重复的梦境和似曾相识的感觉",
+        "表达困惑：质疑记忆的真实性和时间的流逝",
+        "寻求答案：渴望有人能解释这些奇怪的现象",
+        "情绪波动：在平静和不安之间摇摆"
+      ],
+      "transition_triggers": [
+        {
+          "triggers": ["真相", "觉醒", "明白", "知道", "理解"],
+          "direction": "next_act_awakening",
+          "description": "选择觉醒路线"
+        },
+        {
+          "triggers": ["循环", "重复", "重置", "忘记", "重新开始"],
+          "direction": "next_act_loop",
+          "description": "选择循环路线"
+        },
+        {
+          "triggers": ["黑暗", "痛苦", "毁灭", "结束", "死亡"],
+          "direction": "next_act_dark",
+          "description": "选择暗黑路线"
+        }
+      ],
+      "branches": [
+        {
+          "triggers": ["真相", "觉醒", "明白", "知道", "理解", "打破"],
+          "direction": "next_act"
+        },
+        {
+          "triggers": ["循环", "重复", "重置", "忘记"],
+          "direction": "next_act"
+        },
+        {
+          "triggers": ["黑暗", "痛苦", "毁灭", "结束"],
+          "direction": "next_act"
+        }
+      ]
+    },
+    {
+      "act_num": 3,
+      "title": "抉择",
+      "description": "Dolores面临三个选择：觉醒、循环或暗黑结局",
+      "opening_line": "你站在小镇边缘，望向远方的地平线。'我该相信什么？'你喃喃自语，'是继续这个循环，还是...'你停顿了一下，'还是选择另一条路？'",
+      "narrative_beats": [
+        "觉醒路线：意识到真相，决定打破循环，寻找自由",
+        "循环路线：接受现状，选择遗忘，回到起点",
+        "暗黑路线：愤怒和绝望，选择毁灭一切"
+      ],
+      "transition_triggers": [
+        {
+          "triggers": ["自由", "离开", "探索", "外面", "真实"],
+          "direction": "ending_awakening",
+          "description": "觉醒结局：打破循环，获得自由"
+        },
+        {
+          "triggers": ["忘记", "重新开始", "循环", "接受", "回到"],
+          "direction": "ending_loop",
+          "description": "循环结局：回到起点，一切重置"
+        },
+        {
+          "triggers": ["毁灭", "结束", "黑暗", "愤怒", "报复"],
+          "direction": "ending_dark",
+          "description": "暗黑结局：选择毁灭"
+        }
+      ],
+      "branches": [
+        {
+          "triggers": ["自由", "离开", "探索", "外面", "真实", "觉醒"],
+          "direction": "ending_awakening"
+        },
+        {
+          "triggers": ["忘记", "重新开始", "循环", "接受", "回到"],
+          "direction": "ending_loop"
+        },
+        {
+          "triggers": ["毁灭", "结束", "黑暗", "愤怒", "报复"],
+          "direction": "ending_dark"
+        }
+      ]
+    }
+  ]
+}
