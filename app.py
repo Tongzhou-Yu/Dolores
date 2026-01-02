@@ -114,8 +114,6 @@ def init_session_state():
         st.session_state.opening_shown = False
     if "pending_input" not in st.session_state:
         st.session_state.pending_input = None
-    if "enable_tts" not in st.session_state:
-        st.session_state.enable_tts = False
     if "audio_cache" not in st.session_state:
         st.session_state.audio_cache = {}
 
@@ -125,10 +123,6 @@ def main():
     
     init_session_state()
     
-    # 侧边栏设置
-    with st.sidebar:
-        st.session_state.enable_tts = st.checkbox("启用语音合成", value=st.session_state.enable_tts)
-    
     # 读取API Key
     if "ZHIPU_API_KEY" not in st.secrets:
         st.error("请在.streamlit/secrets.toml中配置ZHIPU_API_KEY")
@@ -136,15 +130,13 @@ def main():
     
     api_key = st.secrets["ZHIPU_API_KEY"]
     
-    # 读取Fish Speech配置（如果启用语音）
-    fish_api_key = None
-    fish_model_id = None
-    if st.session_state.enable_tts:
-        if "FISH_API_KEY" not in st.secrets or "FISH_MODEL_ID" not in st.secrets:
-            st.warning("语音合成已启用，但未配置FISH_API_KEY或FISH_MODEL_ID")
-        else:
-            fish_api_key = st.secrets["FISH_API_KEY"]
-            fish_model_id = st.secrets["FISH_MODEL_ID"]
+    # 读取Fish Speech配置
+    if "FISH_API_KEY" not in st.secrets or "FISH_MODEL_ID" not in st.secrets:
+        st.error("请在.streamlit/secrets.toml中配置FISH_API_KEY和FISH_MODEL_ID")
+        st.stop()
+    
+    fish_api_key = st.secrets["FISH_API_KEY"]
+    fish_model_id = st.secrets["FISH_MODEL_ID"]
     
     # 加载剧本和记忆
     try:
@@ -177,12 +169,11 @@ def main():
         if msg["role"] == "assistant":
             with st.chat_message("assistant"):
                 st.write(msg["content"])
-                # 如果启用语音且是最后一条消息，播放语音
-                if st.session_state.enable_tts and fish_api_key and fish_model_id:
-                    if idx == len(st.session_state.history) - 1:
-                        msg_key = f"{idx}_{msg['content'][:50]}"
-                        if msg_key in st.session_state.audio_cache:
-                            st.audio(st.session_state.audio_cache[msg_key], format="audio/mp3")
+                # 最后一条消息自动播放语音
+                if idx == len(st.session_state.history) - 1:
+                    msg_key = f"{idx}_{msg['content'][:50]}"
+                    if msg_key in st.session_state.audio_cache:
+                        st.audio(st.session_state.audio_cache[msg_key], format="audio/mp3", autoplay=True)
         else:
             st.chat_message("user").write(msg["content"])
     
@@ -234,14 +225,13 @@ def main():
         if ai_response:
             st.session_state.history.append({"role": "assistant", "content": ai_response})
             
-            # 如果启用语音，立即生成语音并缓存
-            if st.session_state.enable_tts and fish_api_key and fish_model_id:
-                msg_idx = len(st.session_state.history) - 1
-                msg_key = f"{msg_idx}_{ai_response[:50]}"
-                if msg_key not in st.session_state.audio_cache:
-                    audio_data = synthesize_speech(ai_response, fish_api_key, fish_model_id)
-                    if audio_data:
-                        st.session_state.audio_cache[msg_key] = audio_data
+            # 立即生成语音并缓存
+            msg_idx = len(st.session_state.history) - 1
+            msg_key = f"{msg_idx}_{ai_response[:50]}"
+            if msg_key not in st.session_state.audio_cache:
+                audio_data = synthesize_speech(ai_response, fish_api_key, fish_model_id)
+                if audio_data:
+                    st.session_state.audio_cache[msg_key] = audio_data
             
             # 检查是否需要推进到下一幕
             if branch_direction == "next_act" and st.session_state.act_num < len(acts):
