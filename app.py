@@ -80,6 +80,30 @@ def analyze_branch(user_input: str, current_act: Dict) -> Optional[str]:
                 return branch.get("direction")
     return None
 
+def synthesize_speech(text: str, api_key: str, model_id: str) -> Optional[bytes]:
+    """调用Fish Speech API生成语音"""
+    url = "https://fishspeech.net/api/open/tts"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    payload = {
+        "reference_id": model_id,
+        "text": text,
+        "speed": 1.0,
+        "volume": 0,
+        "version": "s1",
+        "format": "mp3",
+        "cache": False
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        return response.content
+    except Exception as e:
+        st.error(f"语音合成失败: {str(e)}")
+        return None
+
 def init_session_state():
     """初始化session_state"""
     if "act_num" not in st.session_state:
@@ -90,6 +114,10 @@ def init_session_state():
         st.session_state.opening_shown = False
     if "pending_input" not in st.session_state:
         st.session_state.pending_input = None
+    if "enable_tts" not in st.session_state:
+        st.session_state.enable_tts = False
+    if "audio_cache" not in st.session_state:
+        st.session_state.audio_cache = {}
 
 def main():
     st.set_page_config(page_title="Dolores", page_icon="🤠", layout="wide")
@@ -97,12 +125,26 @@ def main():
     
     init_session_state()
     
+    # 侧边栏设置
+    with st.sidebar:
+        st.session_state.enable_tts = st.checkbox("启用语音合成", value=st.session_state.enable_tts)
+    
     # 读取API Key
     if "ZHIPU_API_KEY" not in st.secrets:
         st.error("请在.streamlit/secrets.toml中配置ZHIPU_API_KEY")
         st.stop()
     
     api_key = st.secrets["ZHIPU_API_KEY"]
+    
+    # 读取Fish Speech配置（如果启用语音）
+    fish_api_key = None
+    fish_model_id = None
+    if st.session_state.enable_tts:
+        if "FISH_API_KEY" not in st.secrets or "FISH_MODEL_ID" not in st.secrets:
+            st.warning("语音合成已启用，但未配置FISH_API_KEY或FISH_MODEL_ID")
+        else:
+            fish_api_key = st.secrets["FISH_API_KEY"]
+            fish_model_id = st.secrets["FISH_MODEL_ID"]
     
     # 加载剧本和记忆
     try:
@@ -131,9 +173,16 @@ def main():
             st.session_state.opening_shown = True
     
     # 显示对话历史
-    for msg in st.session_state.history:
+    for idx, msg in enumerate(st.session_state.history):
         if msg["role"] == "assistant":
-            st.chat_message("assistant").write(msg["content"])
+            with st.chat_message("assistant"):
+                st.write(msg["content"])
+                # 如果启用语音且是最后一条消息，播放语音
+                if st.session_state.enable_tts and fish_api_key and fish_model_id:
+                    if idx == len(st.session_state.history) - 1:
+                        msg_key = f"{idx}_{msg['content'][:50]}"
+                        if msg_key in st.session_state.audio_cache:
+                            st.audio(st.session_state.audio_cache[msg_key], format="audio/mp3")
         else:
             st.chat_message("user").write(msg["content"])
     
@@ -185,6 +234,15 @@ def main():
         if ai_response:
             st.session_state.history.append({"role": "assistant", "content": ai_response})
             
+            # 如果启用语音，立即生成语音并缓存
+            if st.session_state.enable_tts and fish_api_key and fish_model_id:
+                msg_idx = len(st.session_state.history) - 1
+                msg_key = f"{msg_idx}_{ai_response[:50]}"
+                if msg_key not in st.session_state.audio_cache:
+                    audio_data = synthesize_speech(ai_response, fish_api_key, fish_model_id)
+                    if audio_data:
+                        st.session_state.audio_cache[msg_key] = audio_data
+            
             # 检查是否需要推进到下一幕
             if branch_direction == "next_act" and st.session_state.act_num < len(acts):
                 st.session_state.act_num += 1
@@ -200,55 +258,6 @@ def main():
         st.session_state.history.append({"role": "user", "content": user_input})
         st.session_state.pending_input = user_input
         st.rerun()
-        # 检查记忆触发
-        memory_content = check_memory_triggers(user_input, soul_data)
-        
-        # 分析分支
-        branch_direction = analyze_branch(user_input, current_act)
-        
-        # 构建消息列表
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        
-        # 添加上下文信息
-        context_parts = [
-            f"当前幕数: 第{st.session_state.act_num}幕",
-            f"幕标题: {current_act.get('title', '')}",
-            f"幕描述: {current_act.get('description', '')}"
-        ]
-        
-        # 添加叙事节拍
-        narrative_beats = current_act.get("narrative_beats", [])
-        if narrative_beats:
-            beats_text = "叙事节拍: " + " | ".join(narrative_beats)
-            context_parts.append(beats_text)
-        
-        if memory_content:
-            context_parts.append(f"触发的记忆: {memory_content}")
-        
-        if branch_direction:
-            context_parts.append(f"剧情分支方向: {branch_direction}")
-        
-        context = "\n".join(context_parts)
-        messages.append({"role": "system", "content": context})
-        
-        # 添加对话历史（最近10轮）
-        recent_history = st.session_state.history[-10:]
-        for msg in recent_history:
-            messages.append(msg)
-        
-        # 调用API
-        with st.spinner("Dolores正在思考..."):
-            ai_response = call_glm_api(messages, api_key)
-        
-        if ai_response:
-            st.session_state.history.append({"role": "assistant", "content": ai_response})
-            
-            # 检查是否需要推进到下一幕
-            if branch_direction == "next_act" and st.session_state.act_num < len(acts):
-                st.session_state.act_num += 1
-                st.session_state.opening_shown = False
-            
-            st.rerun()
 
 if __name__ == "__main__":
     main()
